@@ -1,0 +1,26 @@
+{
+  "port": {
+    "type": "Number",
+    "label": "Port Number",
+    "required": true,
+    "help": "The port number to use."
+  },
+  "data_topic": {
+    "type": "String",
+    "label": "Data Topic",
+    "default": "reekoh/data",
+    "help": "The topic to listen to for device data. Default: reekoh/data"
+  },
+  "message_topic": {
+    "type": "String",
+    "label": "Message Topic",
+    "default": "reekoh/messages",
+    "help": "The topic to listen to for device messages or commands. Default: reekoh/messages"
+  },
+  "groupmessage_topic": {
+    "type": "String",
+    "label": "Group Message Topic",
+    "default": "reekoh/groupmessages",
+    "help": "The topic to listen to for group messages or commands. Default: reekoh/groupmessages"
+  }
+}
