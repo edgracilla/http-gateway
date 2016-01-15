@@ -1,0 +1,32 @@
+{
+  "name": "http-gateway",
+  "description": "HTTP Gateway Plugin for the Reekoh IoT Platform.",
+  "version": "0.1.0",
+  "author": "Reekoh, Inc.",
+  "main": "app.js",
+  "scripts": {
+    "test": "gulp test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Reekoh/http-gateway"
+  },
+  "dependencies": {
+    "body-parser": "^1.14.2",
+    "express": "^4.13.3",
+    "lodash.clone": "^3.0.3",
+    "lodash.indexby": "^3.1.1",
+    "lodash.isempty": "^3.0.4",
+    "lodash.isplainobject": "^3.2.0"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.0",
+    "gulp-cli": "^1.1.0",
+    "gulp-jshint": "^2.0.0",
+    "gulp-json-lint": "^0.1.0",
+    "gulp-mocha": "^2.2.0",
+    "gulp-plumber": "^1.0.1",
+    "mocha": "^2.3.4"
+  },
+  "license": "LGPLv3"
+}
