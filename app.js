@@ -42,8 +42,7 @@ platform.on('removedevice', function (device) {
 });
 
 platform.once('close', function () {
-    var domain = require('domain');
-    var d = domain.create();
+	let d = require('domain').create();
 
     d.once('error', function(error) {
         console.error(error);
