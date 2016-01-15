@@ -42,21 +42,21 @@ platform.on('removedevice', function (device) {
 });
 
 platform.once('close', function () {
-	var domain = require('domain');
-	var d = domain.create();
+    var domain = require('domain');
+    var d = domain.create();
 
-	d.once('error', function(error) {
-		console.error(error);
-		platform.handleException(error);
-		platform.notifyClose();
-		d.exit();
-	});
+    d.once('error', function(error) {
+        console.error(error);
+        platform.handleException(error);
+        platform.notifyClose();
+        d.exit();
+    });
 
-	d.run(function() {
-		server.exit();
-		platform.notifyClose();
-		d.exit();
-	});
+    d.run(function() {
+        server.exit();
+        platform.notifyClose();
+        d.exit();
+    });
 });
 
 platform.once('ready', function (options, registeredDevices) {
