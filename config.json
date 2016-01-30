@@ -1,26 +1,30 @@
 {
-  "port": {
-    "type": "Number",
-    "label": "Port Number",
-    "required": true,
-    "help": "The port number to use."
-  },
-  "data_topic": {
+  "data_path": {
     "type": "String",
-    "label": "Data Topic",
-    "default": "reekoh/data",
-    "help": "The topic to listen to for device data. Default: reekoh/data"
+    "label": "Data Path",
+    "default": "/reekoh/data",
+    "help": "(Optional) The path where device data is POSTed. Default: /reekoh/data"
   },
-  "message_topic": {
+  "message_path": {
     "type": "String",
-    "label": "Message Topic",
-    "default": "reekoh/messages",
-    "help": "The topic to listen to for device messages or commands. Default: reekoh/messages"
+    "label": "Message Path",
+    "default": "/reekoh/messages",
+    "help": "(Optional) The path where device messages or commands are POSTed. Default: /reekoh/data"
   },
-  "groupmessage_topic": {
+  "groupmessage_path": {
     "type": "String",
     "label": "Group Message Topic",
-    "default": "reekoh/groupmessages",
-    "help": "The topic to listen to for group messages or commands. Default: reekoh/groupmessages"
+    "default": "/reekoh/groupmessages",
+    "help": "(Optional) The path where group messages or commands are POSTed. Default: /reekoh/groupmessages"
+  },
+  "username": {
+    "type": "String",
+    "label": "Username",
+    "help": "(Optional) HTTP Basic authentication username."
+  },
+  "password": {
+    "type": "Password",
+    "label": "Password",
+    "help": "(Optional) HTTP Basic authentication password."
   }
 }
