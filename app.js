@@ -106,6 +106,12 @@ platform.once('ready', function (options, registeredDevices) {
 		});
 
 		d.run(() => {
+			if (isEmpty(req.body)) {
+				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
+
+				return d.exit();
+			}
+
 			let data = JSON.parse(req.body);
 
 			if (isEmpty(data.device)) {
@@ -139,6 +145,12 @@ platform.once('ready', function (options, registeredDevices) {
 		});
 
 		d.run(() => {
+			if (isEmpty(req.body)) {
+				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
+
+				return d.exit();
+			}
+
 			let message = JSON.parse(req.body);
 
 			if (isEmpty(message.target) || isEmpty(message.message)) {
@@ -173,6 +185,12 @@ platform.once('ready', function (options, registeredDevices) {
 		});
 
 		d.run(() => {
+			if (isEmpty(req.body)) {
+				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
+
+				return d.exit();
+			}
+
 			let message = JSON.parse(req.body);
 
 			if (isEmpty(message.target) || isEmpty(message.message)) {
