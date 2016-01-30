@@ -65,7 +65,8 @@ platform.once('ready', function (options, registeredDevices) {
 	app.disable('x-powered-by');
 
 	app.use(bodyParser.text({
-		type: '*/*'
+		type: '*/*',
+		limit: '500kb'
 	}));
 
 	app.use(bodyParser.urlencoded({
