@@ -1,154 +1,210 @@
 'use strict';
 
-var platform = require('./platform'),
-    isEmpty           = require('lodash.isempty'),
-    isPlainObject = require('lodash.isplainobject'),
-    clients           = {},
-    authorizedDevices = {},
-    server;
-
-platform.on('message', function (message) {
-    if (clients[message.client]) {
-        var client = clients[message.client];
-
-        client.end(new Buffer(message.message));
-
-        platform.sendMessageResponse(message.messageId, 'Message Sent');
-        platform.log(JSON.stringify({
-            title: 'Message Sent',
-            device: message.device,
-            messageId: message.messageId,
-            message: message.message
-        }));
-    }
-});
+var platform          = require('./platform'),
+	isEmpty           = require('lodash.isempty'),
+	authorizedDevices = {},
+	server;
 
 platform.on('adddevice', function (device) {
-    if (!isEmpty(device) && !isEmpty(device._id)) {
-        authorizedDevices[device._id] = device;
-        platform.log('Successfully added ' + device._id + ' to the pool of authorized devices.');
-    }
-    else
-        platform.handleException(new Error('Device data invalid. Device not added. ' + device));
+	if (!isEmpty(device) && !isEmpty(device._id)) {
+		authorizedDevices[device._id] = device;
+		platform.log(`Successfully added ${device._id} to the pool of authorized devices.`);
+	}
+	else
+		platform.handleException(new Error(`Device data invalid. Device not added. ${device}`));
 });
 
 platform.on('removedevice', function (device) {
-    if (!isEmpty(device) && !isEmpty(device._id)) {
-        delete authorizedDevices[device._id];
-        platform.log('Successfully removed ' + device._id + ' from the pool of authorized devices.');
-    }
-    else
-        platform.handleException(new Error('Device data invalid. Device not removed. ' + device));
+	if (!isEmpty(device) && !isEmpty(device._id)) {
+		delete authorizedDevices[device._id];
+		platform.log(`Successfully added ${device._id} from the pool of authorized devices.`);
+	}
+	else
+		platform.handleException(new Error(`Device data invalid. Device not removed. ${device}`));
 });
 
 platform.once('close', function () {
 	let d = require('domain').create();
 
-    d.once('error', function(error) {
-        console.error(error);
-        platform.handleException(error);
-        platform.notifyClose();
-        d.exit();
-    });
+	d.once('error', (error) => {
+		console.error(error);
+		platform.handleException(error);
+		platform.notifyClose();
+		d.exit();
+	});
 
-    d.run(function() {
-        server.exit();
-        platform.notifyClose();
-        d.exit();
-    });
+	d.run(() => {
+		server.close(() => {
+			d.exit();
+		});
+	});
 });
 
 platform.once('ready', function (options, registeredDevices) {
-    var clone   = require('lodash.clone'),
-        domain  = require('domain'),
-        indexBy = require('lodash.indexby'),
-        config  = require('./config.json'),
-        express = require('express'),
-        bodyParser = require('body-parser');
+	let hpp        = require('hpp'),
+		domain     = require('domain'),
+		keyBy      = require('lodash.keyby'),
+		config     = require('./config.json'),
+		express    = require('express'),
+		bodyParser = require('body-parser');
 
+	if (!isEmpty(registeredDevices))
+		authorizedDevices = keyBy(registeredDevices, '_id');
 
-    if (!isEmpty(registeredDevices)) {
-        var tmpDevices = clone(registeredDevices, true);
-        authorizedDevices = indexBy(tmpDevices, '_id');
-    }
+	if (isEmpty(options.data_path))
+		options.data_path = config.data_path.default;
 
-    if (isEmpty(options.data_topic))
-        options.data_topic = config.data_topic.default;
+	if (isEmpty(options.message_path))
+		options.message_path = config.message_path.default;
 
-    if (isEmpty(options.message_topic))
-        options.message_topic = config.message_topic.default;
+	if (isEmpty(options.groupmessage_path))
+		options.groupmessage_path = config.groupmessage_path.default;
 
-    if (isEmpty(options.groupmessage_topic))
-        options.groupmessage_topic = config.groupmessage_topic.default;
+	var app = express();
 
-    server = express();
-    server.use(bodyParser.urlencoded({ extended: false }));
-    server.use(bodyParser.json());
+	app.disable('x-powered-by');
 
-    server.all('/*', function(request, response){
-        var serverDomain = domain.create();
+	app.use(bodyParser.text({
+		type: '*/*'
+	}));
 
-        serverDomain.once('error', function (error) {
-            platform.handleException(error);
-            response.end(new Buffer('Invalid data sent. Must be a valid JSON String.'));
-            serverDomain.exit();
-        });
+	app.use(bodyParser.urlencoded({
+		extended: true
+	}));
 
-        serverDomain.run(function(){
-            var url = request.url.split('/')[1];
-            var message;
+	app.use(hpp());
 
-            if(isPlainObject(request.body))
-                message = request.body;
-            else
-                message = JSON.parse(request.body);
+	if (!isEmpty(options.username)) {
+		let basicAuth = require('basic-auth');
 
-            if(url === options.data_topic){
-                platform.processData(message.device, message);
-                platform.log(JSON.stringify({
-                    title: 'Data Received.',
-                    device: message.device,
-                    data: message
-                }));
-                if (isEmpty(clients[message.device])) {
-                    clients[message.device] = response;
-                }
-            }
-            else if(url === options.message_topic){
-                platform.sendMessageToDevice(message.target, message);
+		app.use((req, res, next) => {
+			let unauthorized = (res) => {
+				res.set('WWW-Authenticate', 'Basic realm=Authorization Required');
+				return res.sendStatus(401);
+			};
 
-                platform.log(JSON.stringify({
-                    title: 'Message Sent.',
-                    source: message.device,
-                    target: message.target,
-                    message: message
-                }));
+			let user = basicAuth(req);
 
-                response.end('Message Sent.');
-            }
-            else if(url === options.groupmessage_topic){
-                platform.sendMessageToGroup(message.target, message);
+			if (isEmpty(user))
+				return unauthorized(res);
+			if (user.name === options.username && isEmpty(options.password))
+				return next();
+			if (user.name === options.username && user.pass === options.password)
+				return next();
+			else
+				return unauthorized(res);
+		});
+	}
 
-                platform.log(JSON.stringify({
-                    title: 'Message Sent.',
-                    source: message.device,
-                    target: message.target,
-                    message: message
-                }));
+	app.post((options.data_path.startsWith('/')) ? options.data_path : `/${options.data_path}`, (req, res) => {
+		let d = domain.create();
 
-                response.end('Message Sent.');
-            }
-            else{
-                response.end('Invalid Topic: '+ url);
-            }
+		d.once('error', (error) => {
+			platform.handleException(error);
+			res.status(400).send(new Buffer('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
+			d.exit();
+		});
 
-            serverDomain.exit();
-        });
+		d.run(() => {
+			let data = JSON.parse(req.body);
 
-    });
+			if (isEmpty(data.device)) {
+				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
 
-    server.listen(options.port, function(){
-        platform.notifyReady();
-        platform.log('Gateway has been initialized on port ' + options.port);
-    });
+				return d.exit();
+			}
+
+			platform.processData(data.device, req.body);
+
+			platform.log(JSON.stringify({
+				title: 'Data Received.',
+				device: data.device,
+				data: data
+			}));
+
+			res.sendStatus(200);
+
+			d.exit();
+		});
+	});
+
+	app.post((options.message_path.startsWith('/')) ? options.message_path : `/${options.message_path}`, (req, res) => {
+		let d = domain.create();
+
+		d.once('error', (error) => {
+			platform.handleException(error);
+			res.end(new Buffer('Invalid data sent. Must be a valid JSON String.'));
+
+			d.exit();
+		});
+
+		d.run(() => {
+			let message = JSON.parse(req.body);
+
+			if (isEmpty(message.target) || isEmpty(message.message)) {
+				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
+
+				return d.exit();
+			}
+
+			platform.sendMessageToDevice(message.target, message.message);
+
+			platform.log(JSON.stringify({
+				title: 'Message Sent.',
+				source: message.device,
+				target: message.target,
+				message: message
+			}));
+
+			res.sendStatus(200);
+
+			d.exit();
+		});
+	});
+
+	app.post((options.groupmessage_path.startsWith('/')) ? options.groupmessage_path : `/${options.groupmessage_path}`, (req, res) => {
+		let d = domain.create();
+
+		d.once('error', (error) => {
+			platform.handleException(error);
+			res.end(new Buffer('Invalid data sent. Must be a valid JSON String.'));
+
+			d.exit();
+		});
+
+		d.run(() => {
+			let message = JSON.parse(req.body);
+
+			if (isEmpty(message.target) || isEmpty(message.message)) {
+				platform.handleException(new Error('Invalid group message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the the group name. "message" is the payload.'));
+
+				return d.exit();
+			}
+
+			platform.sendMessageToGroup(message.target, message.message);
+
+			platform.log(JSON.stringify({
+				title: 'Group Message Sent.',
+				source: message.device,
+				target: message.target,
+				message: message
+			}));
+
+			res.sendStatus(200);
+
+			d.exit();
+		});
+	});
+
+	server = require('http').Server(app);
+
+	server.once('close', () => {
+		console.log(`HTTP Gateway closed on port ${options.port}`);
+		platform.notifyClose();
+	});
+
+	server.listen(options.port);
+
+	platform.notifyReady();
+	platform.log(`HTTP Gateway has been initialized on port ${options.port}`);
 });
