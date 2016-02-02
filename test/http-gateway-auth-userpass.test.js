@@ -6,8 +6,8 @@ const PORT              = 8082,
 	  GROUPMESSAGE_PATH = '/http/groupmessage',
 	  USERNAME          = 'reekoh',
 	  PASSWORD          = 'testhttpgatewayauth',
-	  DEVICE_ID1        = '567827489028375',
-	  DEVICE_ID2        = '567827489028376';
+	  DEVICE_ID1        = '567827489028379',
+	  DEVICE_ID2        = '567827489028370';
 
 var cp      = require('child_process'),
 	assert  = require('assert'),
@@ -70,7 +70,7 @@ describe('HTTP Gateway Auth - User Pass', function () {
 
 			request.post({
 				url: `http://localhost:${PORT}${DATA_PATH}`,
-				body: JSON.stringify({device: '567827489028376', data: 'test data'}),
+				body: JSON.stringify({device: '567827489028379', data: 'test data'}),
 				headers: {
 					'Content-Type': 'text/plain'
 				}
@@ -89,7 +89,7 @@ describe('HTTP Gateway Auth - User Pass', function () {
 
 			request.post({
 				url: `http://localhost:${PORT}${DATA_PATH}`,
-				body: JSON.stringify({device: '567827489028376', data: 'test data'}),
+				body: JSON.stringify({device: '567827489028379', data: 'test data'}),
 				headers: {
 					'Content-Type': 'text/plain'
 				},
@@ -112,7 +112,7 @@ describe('HTTP Gateway Auth - User Pass', function () {
 
 			request.post({
 				url: `http://localhost:${PORT}${MESSAGE_PATH}`,
-				body: JSON.stringify({target: '567827489028376', message: 'TURNOFF'}),
+				body: JSON.stringify({device: '567827489028370', target: '567827489028379', message: 'TURNOFF'}),
 				headers: {
 					'Content-Type': 'text/plain'
 				},
@@ -135,7 +135,7 @@ describe('HTTP Gateway Auth - User Pass', function () {
 
 			request.post({
 				url: `http://localhost:${PORT}${GROUPMESSAGE_PATH}`,
-				body: JSON.stringify({target: 'Bedroom Lights', message: 'TURNOFF'}),
+				body: JSON.stringify({device: '567827489028370', target: 'Bedroom Lights', message: 'TURNOFF'}),
 				headers: {
 					'Content-Type': 'text/plain'
 				},

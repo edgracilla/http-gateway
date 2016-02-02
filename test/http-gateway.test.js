@@ -85,7 +85,7 @@ describe('HTTP Gateway', function () {
 
 			request.post({
 				url: `http://localhost:${PORT}${MESSAGE_PATH}`,
-				body: JSON.stringify({target: '567827489028376', message: 'TURNOFF'}),
+				body: JSON.stringify({device: '567827489028376', target: '567827489028375', message: 'TURNOFF'}),
 				headers: {
 					'Content-Type': 'text/plain'
 				}
@@ -104,7 +104,7 @@ describe('HTTP Gateway', function () {
 
 			request.post({
 				url: `http://localhost:${PORT}${GROUPMESSAGE_PATH}`,
-				body: JSON.stringify({target: 'Bedroom Lights', message: 'TURNOFF'}),
+				body: JSON.stringify({device: '567827489028376', target: 'Bedroom Lights', message: 'TURNOFF'}),
 				headers: {
 					'Content-Type': 'text/plain'
 				}
