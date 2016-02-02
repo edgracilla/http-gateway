@@ -44,6 +44,7 @@ platform.once('ready', function (options, registeredDevices) {
 	let hpp        = require('hpp'),
 		domain     = require('domain'),
 		keyBy      = require('lodash.keyby'),
+		helmet     = require('helmet'),
 		config     = require('./config.json'),
 		express    = require('express'),
 		bodyParser = require('body-parser');
@@ -62,8 +63,6 @@ platform.once('ready', function (options, registeredDevices) {
 
 	var app = express();
 
-	app.disable('x-powered-by');
-
 	app.use(bodyParser.text({
 		type: '*/*',
 		limit: '500kb'
@@ -73,6 +72,12 @@ platform.once('ready', function (options, registeredDevices) {
 		extended: true
 	}));
 
+	// For security
+	app.disable('x-powered-by');
+	app.use(helmet.xssFilter({setOnOldIE: true}));
+	app.use(helmet.frameguard('deny'));
+	app.use(helmet.ieNoOpen());
+	app.use(helmet.noSniff());
 	app.use(hpp());
 
 	if (!isEmpty(options.username)) {
@@ -121,6 +126,17 @@ platform.once('ready', function (options, registeredDevices) {
 				return d.exit();
 			}
 
+			if (isEmpty(authorizedDevices[data.device])) {
+				platform.log(JSON.stringify({
+					title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+					device: data.device
+				}));
+
+				res.sendStatus(401);
+
+				return d.exit();
+			}
+
 			platform.processData(data.device, req.body);
 
 			platform.log(JSON.stringify({
@@ -153,6 +169,23 @@ platform.once('ready', function (options, registeredDevices) {
 			}
 
 			let message = JSON.parse(req.body);
+
+			if (isEmpty(message.device)) {
+				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
+
+				return d.exit();
+			}
+
+			if (isEmpty(authorizedDevices[message.device])) {
+				platform.log(JSON.stringify({
+					title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+					device: message.device
+				}));
+
+				res.sendStatus(401);
+
+				return d.exit();
+			}
 
 			if (isEmpty(message.target) || isEmpty(message.message)) {
 				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
@@ -193,6 +226,23 @@ platform.once('ready', function (options, registeredDevices) {
 			}
 
 			let message = JSON.parse(req.body);
+
+			if (isEmpty(message.device)) {
+				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
+
+				return d.exit();
+			}
+
+			if (isEmpty(authorizedDevices[message.device])) {
+				platform.log(JSON.stringify({
+					title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+					device: message.device
+				}));
+
+				res.sendStatus(401);
+
+				return d.exit();
+			}
 
 			if (isEmpty(message.target) || isEmpty(message.message)) {
 				platform.handleException(new Error('Invalid group message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the the group name. "message" is the payload.'));
