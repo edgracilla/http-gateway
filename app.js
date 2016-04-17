@@ -43,7 +43,6 @@ platform.once('close', function () {
 
 platform.once('ready', function (options, registeredDevices) {
 	let hpp        = require('hpp'),
-		domain     = require('domain'),
 		keyBy      = require('lodash.keyby'),
 		helmet     = require('helmet'),
 		config     = require('./config.json'),
