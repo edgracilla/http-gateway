@@ -26,14 +26,14 @@ platform.on('removedevice', function (device) {
 platform.once('close', function () {
 	let d = require('domain').create();
 
-	d.once('error', (error) => {
+	d.once('error', function (error) {
 		console.error(error);
 		platform.handleException(error);
 		platform.notifyClose();
 		d.exit();
 	});
 
-	d.run(() => {
+	d.run(function () {
 		server.close(() => {
 			d.exit();
 		});
@@ -105,13 +105,13 @@ platform.once('ready', function (options, registeredDevices) {
 	app.post((options.data_path.startsWith('/')) ? options.data_path : `/${options.data_path}`, (req, res) => {
 		let d = domain.create();
 
-		d.once('error', (error) => {
+		d.once('error', function (error) {
 			platform.handleException(error);
 			res.status(400).send(new Buffer('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
 			d.exit();
 		});
 
-		d.run(() => {
+		d.run(function () {
 			if (isEmpty(req.body)) {
 				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
 
@@ -154,14 +154,14 @@ platform.once('ready', function (options, registeredDevices) {
 	app.post((options.message_path.startsWith('/')) ? options.message_path : `/${options.message_path}`, (req, res) => {
 		let d = domain.create();
 
-		d.once('error', (error) => {
+		d.once('error', function (error) {
 			platform.handleException(error);
 			res.end(new Buffer('Invalid data sent. Must be a valid JSON String.'));
 
 			d.exit();
 		});
 
-		d.run(() => {
+		d.run(function () {
 			if (isEmpty(req.body)) {
 				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
 
@@ -211,14 +211,14 @@ platform.once('ready', function (options, registeredDevices) {
 	app.post((options.groupmessage_path.startsWith('/')) ? options.groupmessage_path : `/${options.groupmessage_path}`, (req, res) => {
 		let d = domain.create();
 
-		d.once('error', (error) => {
+		d.once('error', function (error) {
 			platform.handleException(error);
 			res.end(new Buffer('Invalid data sent. Must be a valid JSON String.'));
 
 			d.exit();
 		});
 
-		d.run(() => {
+		d.run(function () {
 			if (isEmpty(req.body)) {
 				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
 
