@@ -1,6 +1,7 @@
 'use strict';
 
-var platform          = require('./platform'),
+var async             = require('async'),
+	platform          = require('./platform'),
 	isEmpty           = require('lodash.isempty'),
 	authorizedDevices = {},
 	server;
@@ -26,14 +27,14 @@ platform.on('removedevice', function (device) {
 platform.once('close', function () {
 	let d = require('domain').create();
 
-	d.once('error', (error) => {
+	d.once('error', function (error) {
 		console.error(error);
 		platform.handleException(error);
 		platform.notifyClose();
 		d.exit();
 	});
 
-	d.run(() => {
+	d.run(function () {
 		server.close(() => {
 			d.exit();
 		});
@@ -42,7 +43,6 @@ platform.once('close', function () {
 
 platform.once('ready', function (options, registeredDevices) {
 	let hpp        = require('hpp'),
-		domain     = require('domain'),
 		keyBy      = require('lodash.keyby'),
 		helmet     = require('helmet'),
 		config     = require('./config.json'),
@@ -103,27 +103,13 @@ platform.once('ready', function (options, registeredDevices) {
 	}
 
 	app.post((options.data_path.startsWith('/')) ? options.data_path : `/${options.data_path}`, (req, res) => {
-		let d = domain.create();
-
-		d.once('error', (error) => {
-			platform.handleException(error);
-			res.status(400).send(new Buffer('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-			d.exit();
-		});
-
-		d.run(() => {
-			if (isEmpty(req.body)) {
+		async.waterfall([
+			async.constant(req.body || '{}'),
+			async.asyncify(JSON.parse)
+		], (error, data) => {
+			if (error || isEmpty(req.body) || isEmpty(data.device)) {
 				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-
-				return d.exit();
-			}
-
-			let data = JSON.parse(req.body);
-
-			if (isEmpty(data.device)) {
-				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-
-				return d.exit();
+				return res.status(400).send(new Buffer('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
 			}
 
 			if (isEmpty(authorizedDevices[data.device])) {
@@ -132,9 +118,7 @@ platform.once('ready', function (options, registeredDevices) {
 					device: data.device
 				}));
 
-				res.sendStatus(401);
-
-				return d.exit();
+				return res.status(401).send(new Buffer('Device is not registered.'));
 			}
 
 			platform.processData(data.device, req.body);
@@ -145,35 +129,18 @@ platform.once('ready', function (options, registeredDevices) {
 				data: data
 			}));
 
-			res.sendStatus(200);
-
-			d.exit();
+			res.status(200).send(new Buffer('Data Received'));
 		});
 	});
 
 	app.post((options.message_path.startsWith('/')) ? options.message_path : `/${options.message_path}`, (req, res) => {
-		let d = domain.create();
-
-		d.once('error', (error) => {
-			platform.handleException(error);
-			res.end(new Buffer('Invalid data sent. Must be a valid JSON String.'));
-
-			d.exit();
-		});
-
-		d.run(() => {
-			if (isEmpty(req.body)) {
-				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
-
-				return d.exit();
-			}
-
-			let message = JSON.parse(req.body);
-
-			if (isEmpty(message.device)) {
-				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-
-				return d.exit();
+		async.waterfall([
+			async.constant(req.body || '{}'),
+			async.asyncify(JSON.parse)
+		], (error, message) => {
+			if (error || isEmpty(req.body) || isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
+				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
+				return res.status(400).send(new Buffer('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
 			}
 
 			if (isEmpty(authorizedDevices[message.device])) {
@@ -182,15 +149,7 @@ platform.once('ready', function (options, registeredDevices) {
 					device: message.device
 				}));
 
-				res.sendStatus(401);
-
-				return d.exit();
-			}
-
-			if (isEmpty(message.target) || isEmpty(message.message)) {
-				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
-
-				return d.exit();
+				return res.status(401).send(new Buffer('Device is not registered.'));
 			}
 
 			platform.sendMessageToDevice(message.target, message.message);
@@ -202,35 +161,18 @@ platform.once('ready', function (options, registeredDevices) {
 				message: message
 			}));
 
-			res.sendStatus(200);
-
-			d.exit();
+			res.status(200).send(new Buffer('Message Received'));
 		});
 	});
 
 	app.post((options.groupmessage_path.startsWith('/')) ? options.groupmessage_path : `/${options.groupmessage_path}`, (req, res) => {
-		let d = domain.create();
-
-		d.once('error', (error) => {
-			platform.handleException(error);
-			res.end(new Buffer('Invalid data sent. Must be a valid JSON String.'));
-
-			d.exit();
-		});
-
-		d.run(() => {
-			if (isEmpty(req.body)) {
-				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
-
-				return d.exit();
-			}
-
-			let message = JSON.parse(req.body);
-
-			if (isEmpty(message.device)) {
-				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-
-				return d.exit();
+		async.waterfall([
+			async.constant(req.body || '{}'),
+			async.asyncify(JSON.parse)
+		], (error, message) => {
+			if (error || isEmpty(req.body) || isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
+				platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
+				return res.status(400).send(new Buffer('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
 			}
 
 			if (isEmpty(authorizedDevices[message.device])) {
@@ -239,15 +181,7 @@ platform.once('ready', function (options, registeredDevices) {
 					device: message.device
 				}));
 
-				res.sendStatus(401);
-
-				return d.exit();
-			}
-
-			if (isEmpty(message.target) || isEmpty(message.message)) {
-				platform.handleException(new Error('Invalid group message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the the group name. "message" is the payload.'));
-
-				return d.exit();
+				return res.sendStatus(401).send(new Buffer('Device is not registered.'));
 			}
 
 			platform.sendMessageToGroup(message.target, message.message);
@@ -259,9 +193,7 @@ platform.once('ready', function (options, registeredDevices) {
 				message: message
 			}));
 
-			res.sendStatus(200);
-
-			d.exit();
+			res.status(200).send(new Buffer('Group Message Received'));
 		});
 	});
 

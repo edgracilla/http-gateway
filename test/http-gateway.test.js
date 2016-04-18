@@ -73,7 +73,7 @@ describe('HTTP Gateway', function () {
 			}, function (error, response, body) {
 				assert.ifError(error);
 				assert.equal(200, response.statusCode);
-				assert.equal('OK', body);
+				assert.equal('Data Received', body);
 				done();
 			});
 		});
@@ -92,7 +92,7 @@ describe('HTTP Gateway', function () {
 			}, function (error, response, body) {
 				assert.ifError(error);
 				assert.equal(200, response.statusCode);
-				assert.equal('OK', body);
+				assert.equal('Message Received', body);
 				done();
 			});
 		});
@@ -111,7 +111,7 @@ describe('HTTP Gateway', function () {
 			}, function (error, response, body) {
 				assert.ifError(error);
 				assert.equal(200, response.statusCode);
-				assert.equal('OK', body);
+				assert.equal('Group Message Received', body);
 				done();
 			});
 		});
