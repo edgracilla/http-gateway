@@ -1,28 +1,9 @@
 'use strict';
 
-var async             = require('async'),
-	platform          = require('./platform'),
-	isEmpty           = require('lodash.isempty'),
-	authorizedDevices = {},
+var async    = require('async'),
+	platform = require('./platform'),
+	isEmpty  = require('lodash.isempty'),
 	server;
-
-platform.on('adddevice', function (device) {
-	if (!isEmpty(device) && !isEmpty(device._id)) {
-		authorizedDevices[device._id] = device;
-		platform.log(`Successfully added ${device._id} to the pool of authorized devices.`);
-	}
-	else
-		platform.handleException(new Error(`Device data invalid. Device not added. ${device}`));
-});
-
-platform.on('removedevice', function (device) {
-	if (!isEmpty(device) && !isEmpty(device._id)) {
-		delete authorizedDevices[device._id];
-		platform.log(`Successfully added ${device._id} from the pool of authorized devices.`);
-	}
-	else
-		platform.handleException(new Error(`Device data invalid. Device not removed. ${device}`));
-});
 
 platform.once('close', function () {
 	let d = require('domain').create();
@@ -41,16 +22,12 @@ platform.once('close', function () {
 	});
 });
 
-platform.once('ready', function (options, registeredDevices) {
+platform.once('ready', function (options) {
 	let hpp        = require('hpp'),
-		keyBy      = require('lodash.keyby'),
 		helmet     = require('helmet'),
 		config     = require('./config.json'),
 		express    = require('express'),
 		bodyParser = require('body-parser');
-
-	if (!isEmpty(registeredDevices))
-		authorizedDevices = keyBy(registeredDevices, '_id');
 
 	if (isEmpty(options.data_path))
 		options.data_path = config.data_path.default;
@@ -112,24 +89,32 @@ platform.once('ready', function (options, registeredDevices) {
 				return res.status(400).send(new Buffer('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
 			}
 
-			if (isEmpty(authorizedDevices[data.device])) {
-				platform.log(JSON.stringify({
-					title: 'HTTP Gateway - Access Denied. Unauthorized Device',
-					device: data.device
-				}));
+			platform.requestDeviceInfo(data.device, (error, requestId) => {
+				setTimeout(() => {
+					platform.removeAllListeners(requestId);
+				}, 5000);
 
-				return res.status(401).send(new Buffer('Device is not registered.'));
-			}
+				platform.once(requestId, (deviceInfo) => {
+					if (isEmpty(deviceInfo)) {
+						platform.log(JSON.stringify({
+							title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+							device: data.device
+						}));
 
-			platform.processData(data.device, req.body);
+						return res.status(401).send(new Buffer('Device is not registered.'));
+					}
 
-			platform.log(JSON.stringify({
-				title: 'Data Received.',
-				device: data.device,
-				data: data
-			}));
+					platform.processData(data.device, req.body);
 
-			res.status(200).send(new Buffer('Data Received'));
+					platform.log(JSON.stringify({
+						title: 'Data Received.',
+						device: data.device,
+						data: data
+					}));
+
+					res.status(200).send(new Buffer('Data Received'));
+				});
+			});
 		});
 	});
 
@@ -143,25 +128,33 @@ platform.once('ready', function (options, registeredDevices) {
 				return res.status(400).send(new Buffer('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
 			}
 
-			if (isEmpty(authorizedDevices[message.device])) {
-				platform.log(JSON.stringify({
-					title: 'HTTP Gateway - Access Denied. Unauthorized Device',
-					device: message.device
-				}));
+			platform.requestDeviceInfo(message.device, (error, requestId) => {
+				setTimeout(() => {
+					platform.removeAllListeners(requestId);
+				}, 5000);
 
-				return res.status(401).send(new Buffer('Device is not registered.'));
-			}
+				platform.once(requestId, (deviceInfo) => {
+					if (isEmpty(deviceInfo)) {
+						platform.log(JSON.stringify({
+							title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+							device: message.device
+						}));
 
-			platform.sendMessageToDevice(message.target, message.message);
+						return res.status(401).send(new Buffer('Device is not registered.'));
+					}
 
-			platform.log(JSON.stringify({
-				title: 'Message Sent.',
-				source: message.device,
-				target: message.target,
-				message: message
-			}));
+					platform.sendMessageToDevice(message.target, message.message);
 
-			res.status(200).send(new Buffer('Message Received'));
+					platform.log(JSON.stringify({
+						title: 'Message Sent.',
+						source: message.device,
+						target: message.target,
+						message: message
+					}));
+
+					res.status(200).send(new Buffer('Message Received'));
+				});
+			});
 		});
 	});
 
@@ -175,25 +168,33 @@ platform.once('ready', function (options, registeredDevices) {
 				return res.status(400).send(new Buffer('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
 			}
 
-			if (isEmpty(authorizedDevices[message.device])) {
-				platform.log(JSON.stringify({
-					title: 'HTTP Gateway - Access Denied. Unauthorized Device',
-					device: message.device
-				}));
+			platform.requestDeviceInfo(message.device, (error, requestId) => {
+				setTimeout(() => {
+					platform.removeAllListeners(requestId);
+				}, 5000);
 
-				return res.sendStatus(401).send(new Buffer('Device is not registered.'));
-			}
+				platform.once(requestId, (deviceInfo) => {
+					if (isEmpty(deviceInfo)) {
+						platform.log(JSON.stringify({
+							title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+							device: message.device
+						}));
 
-			platform.sendMessageToGroup(message.target, message.message);
+						return res.sendStatus(401).send(new Buffer('Device is not registered.'));
+					}
 
-			platform.log(JSON.stringify({
-				title: 'Group Message Sent.',
-				source: message.device,
-				target: message.target,
-				message: message
-			}));
+					platform.sendMessageToGroup(message.target, message.message);
 
-			res.status(200).send(new Buffer('Group Message Received'));
+					platform.log(JSON.stringify({
+						title: 'Group Message Sent.',
+						source: message.device,
+						target: message.target,
+						message: message
+					}));
+
+					res.status(200).send(new Buffer('Group Message Received'));
+				});
+			});
 		});
 	});
 

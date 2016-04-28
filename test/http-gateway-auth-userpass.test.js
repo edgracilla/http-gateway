@@ -43,6 +43,16 @@ describe('HTTP Gateway Auth - User Pass', function () {
 			gateway.on('message', function (message) {
 				if (message.type === 'ready')
 					done();
+				else if (message.type === 'requestdeviceinfo') {
+					if (message.data.deviceId === DEVICE_ID1 || message.data.deviceId === DEVICE_ID2) {
+						gateway.send({
+							type: message.data.requestId,
+							data: {
+								_id: message.data.deviceId
+							}
+						});
+					}
+				}
 			});
 
 			gateway.send({
@@ -55,8 +65,7 @@ describe('HTTP Gateway Auth - User Pass', function () {
 						groupmessage_path: GROUPMESSAGE_PATH,
 						username: USERNAME,
 						password: PASSWORD
-					},
-					devices: [{_id: DEVICE_ID1}, {_id: DEVICE_ID2}]
+					}
 				}
 			}, function (error) {
 				assert.ifError(error);

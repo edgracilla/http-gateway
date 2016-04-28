@@ -41,6 +41,16 @@ describe('HTTP Gateway', function () {
 			gateway.on('message', function (message) {
 				if (message.type === 'ready')
 					done();
+				else if (message.type === 'requestdeviceinfo') {
+					if (message.data.deviceId === DEVICE_ID1 || message.data.deviceId === DEVICE_ID2) {
+						gateway.send({
+							type: message.data.requestId,
+							data: {
+								_id: message.data.deviceId
+							}
+						});
+					}
+				}
 			});
 
 			gateway.send({
@@ -51,8 +61,7 @@ describe('HTTP Gateway', function () {
 						data_path: DATA_PATH,
 						message_path: MESSAGE_PATH,
 						groupmessage_path: GROUPMESSAGE_PATH
-					},
-					devices: [{_id: DEVICE_ID1}, {_id: DEVICE_ID2}]
+					}
 				}
 			}, function (error) {
 				assert.ifError(error);
