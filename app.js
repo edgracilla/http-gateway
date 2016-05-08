@@ -90,12 +90,14 @@ platform.once('ready', function (options) {
 			}
 
 			platform.requestDeviceInfo(data.device, (error, requestId) => {
-				setTimeout(() => {
+				let t = setTimeout(() => {
 					platform.removeAllListeners(requestId);
 					res.status(504).send(new Buffer('Gateway Timeout'));
 				}, 5000);
 
 				platform.once(requestId, (deviceInfo) => {
+					clearTimeout(t);
+
 					if (isEmpty(deviceInfo)) {
 						platform.log(JSON.stringify({
 							title: 'HTTP Gateway - Access Denied. Unauthorized Device',
@@ -130,12 +132,14 @@ platform.once('ready', function (options) {
 			}
 
 			platform.requestDeviceInfo(message.device, (error, requestId) => {
-				setTimeout(() => {
+				let t = setTimeout(() => {
 					platform.removeAllListeners(requestId);
 					res.status(504).send(new Buffer('Gateway Timeout'));
 				}, 5000);
 
 				platform.once(requestId, (deviceInfo) => {
+					clearTimeout(t);
+
 					if (isEmpty(deviceInfo)) {
 						platform.log(JSON.stringify({
 							title: 'HTTP Gateway - Access Denied. Unauthorized Device',
@@ -171,12 +175,14 @@ platform.once('ready', function (options) {
 			}
 
 			platform.requestDeviceInfo(message.device, (error, requestId) => {
-				setTimeout(() => {
+				let t = setTimeout(() => {
 					platform.removeAllListeners(requestId);
 					res.status(504).send(new Buffer('Gateway Timeout'));
 				}, 5000);
 
 				platform.once(requestId, (deviceInfo) => {
+					clearTimeout(t);
+
 					if (isEmpty(deviceInfo)) {
 						platform.log(JSON.stringify({
 							title: 'HTTP Gateway - Access Denied. Unauthorized Device',
