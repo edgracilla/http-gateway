@@ -84,7 +84,6 @@ describe('HTTP Gateway Auth - User Only', function () {
 			}, function (error, response, body) {
 				assert.ifError(error);
 				assert.equal(401, response.statusCode);
-				assert.ok(body.startsWith('Device not registered.'));
 				done();
 			});
 		});
