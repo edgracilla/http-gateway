@@ -91,9 +91,8 @@ platform.once('ready', function (options) {
 
 			platform.requestDeviceInfo(data.device, (error, requestId) => {
 				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
-					res.status(504).send(new Buffer('Gateway Timeout'));
-				}, 5000);
+					res.status(401).send(new Buffer('Device is not registered.'));
+				}, 10000);
 
 				platform.once(requestId, (deviceInfo) => {
 					clearTimeout(t);
@@ -133,9 +132,8 @@ platform.once('ready', function (options) {
 
 			platform.requestDeviceInfo(message.device, (error, requestId) => {
 				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
-					res.status(504).send(new Buffer('Gateway Timeout'));
-				}, 5000);
+					res.status(401).send(new Buffer('Device is not registered.'));
+				}, 10000);
 
 				platform.once(requestId, (deviceInfo) => {
 					clearTimeout(t);
@@ -176,9 +174,8 @@ platform.once('ready', function (options) {
 
 			platform.requestDeviceInfo(message.device, (error, requestId) => {
 				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
-					res.status(504).send(new Buffer('Gateway Timeout'));
-				}, 5000);
+					res.status(401).send(new Buffer('Device is not registered.'));
+				}, 10000);
 
 				platform.once(requestId, (deviceInfo) => {
 					clearTimeout(t);
