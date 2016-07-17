@@ -86,12 +86,12 @@ platform.once('ready', function (options) {
 		], (error, data) => {
 			if (error || isEmpty(req.body) || isEmpty(data.device)) {
 				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-				return res.status(400).send(new Buffer('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
+				return res.status(400).send(new Buffer('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.\n'));
 			}
 
 			platform.requestDeviceInfo(data.device, (error, requestId) => {
 				let t = setTimeout(() => {
-					res.status(401).send(new Buffer('Device is not registered.'));
+					res.status(401).send(new Buffer(`Device not registered. Device ID: ${data.device}\n`));
 				}, 10000);
 
 				platform.once(requestId, (deviceInfo) => {
@@ -103,7 +103,7 @@ platform.once('ready', function (options) {
 							device: data.device
 						}));
 
-						return res.status(401).send(new Buffer('Device is not registered.'));
+						return res.status(401).send(new Buffer(`Device not registered. Device ID: ${data.device}\n`));
 					}
 
 					platform.processData(data.device, req.body);
@@ -114,7 +114,7 @@ platform.once('ready', function (options) {
 						data: data
 					}));
 
-					res.status(200).send(new Buffer('Data Received'));
+					res.status(200).send(new Buffer(`Data Received. Device ID: ${data.device}. Data: ${req.body}\n`));
 				});
 			});
 		});
@@ -127,12 +127,12 @@ platform.once('ready', function (options) {
 		], (error, message) => {
 			if (error || isEmpty(req.body) || isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
 				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
-				return res.status(400).send(new Buffer('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
+				return res.status(400).send(new Buffer('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.\n'));
 			}
 
 			platform.requestDeviceInfo(message.device, (error, requestId) => {
 				let t = setTimeout(() => {
-					res.status(401).send(new Buffer('Device is not registered.'));
+					res.status(401).send(new Buffer(`Device not registered. Device ID: ${message.device}\n`));
 				}, 10000);
 
 				platform.once(requestId, (deviceInfo) => {
@@ -144,7 +144,7 @@ platform.once('ready', function (options) {
 							device: message.device
 						}));
 
-						return res.status(401).send(new Buffer('Device is not registered.'));
+						return res.status(401).send(new Buffer(`Device not registered. Device ID: ${message.device}\n`));
 					}
 
 					platform.sendMessageToDevice(message.target, message.message);
@@ -156,7 +156,7 @@ platform.once('ready', function (options) {
 						message: message
 					}));
 
-					res.status(200).send(new Buffer('Message Received'));
+					res.status(200).send(new Buffer(`Message Received. Device ID: ${message.device}. Data: ${req.body}\n`));
 				});
 			});
 		});
@@ -169,12 +169,12 @@ platform.once('ready', function (options) {
 		], (error, message) => {
 			if (error || isEmpty(req.body) || isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
 				platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
-				return res.status(400).send(new Buffer('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
+				return res.status(400).send(new Buffer('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.\n'));
 			}
 
 			platform.requestDeviceInfo(message.device, (error, requestId) => {
 				let t = setTimeout(() => {
-					res.status(401).send(new Buffer('Device is not registered.'));
+					res.status(401).send(new Buffer(`Device not registered. Device ID: ${message.device}\n`));
 				}, 10000);
 
 				platform.once(requestId, (deviceInfo) => {
@@ -186,7 +186,7 @@ platform.once('ready', function (options) {
 							device: message.device
 						}));
 
-						return res.sendStatus(401).send(new Buffer('Device is not registered.'));
+						return res.status(401).send(new Buffer(`Device not registered. Device ID: ${message.device}\n`));
 					}
 
 					platform.sendMessageToGroup(message.target, message.message);
@@ -198,7 +198,7 @@ platform.once('ready', function (options) {
 						message: message
 					}));
 
-					res.status(200).send(new Buffer('Group Message Received'));
+					res.status(200).send(new Buffer(`Group Message Received. Device ID: ${message.device}. Data: ${req.body}\n`));
 				});
 			});
 		});
