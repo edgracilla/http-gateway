@@ -79,14 +79,16 @@ platform.once('ready', function (options) {
 	app.post((options.data_path.startsWith('/')) ? options.data_path : `/${options.data_path}`, (req, res) => {
 		let data = req.body;
 
+		res.set('Content-Type', 'text/plain');
+
 		if (isEmpty(data.device)) {
 			platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-			return res.status(400).send(new Buffer('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.\n'));
+			return res.status(400).send('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.\n');
 		}
 
 		platform.requestDeviceInfo(data.device, (error, requestId) => {
 			let t = setTimeout(() => {
-				res.status(401).send(new Buffer(`Device not registered. Device ID: ${data.device}\n`));
+				res.status(401).send(`Device not registered. Device ID: ${data.device}\n`);
 			}, 10000);
 
 			platform.once(requestId, (deviceInfo) => {
@@ -98,10 +100,10 @@ platform.once('ready', function (options) {
 						device: data.device
 					}));
 
-					return res.status(401).send(new Buffer(`Device not registered. Device ID: ${data.device}\n`));
+					return res.status(401).send(`Device not registered. Device ID: ${data.device}\n`);
 				}
 
-				platform.processData(data.device, req.body);
+				platform.processData(data.device, JSON.stringify(data));
 
 				platform.log(JSON.stringify({
 					title: 'Data Received.',
@@ -109,7 +111,7 @@ platform.once('ready', function (options) {
 					data: data
 				}));
 
-				res.status(200).send(new Buffer(`Data Received. Device ID: ${data.device}. Data: ${req.body}\n`));
+				res.status(200).send(`Data Received. Device ID: ${data.device}. Data: ${JSON.stringify(data)}\n`);
 			});
 		});
 	});
@@ -117,14 +119,16 @@ platform.once('ready', function (options) {
 	app.post((options.message_path.startsWith('/')) ? options.message_path : `/${options.message_path}`, (req, res) => {
 		let message = req.body;
 
+		res.set('Content-Type', 'text/plain');
+
 		if (isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
 			platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "device" ,"target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
-			return res.status(400).send(new Buffer('Invalid message or command. Message must be a valid JSON String with "device", "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.\n'));
+			return res.status(400).send('Invalid message or command. Message must be a valid JSON String with "device", "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.\n');
 		}
 
 		platform.requestDeviceInfo(message.device, (error, requestId) => {
 			let t = setTimeout(() => {
-				res.status(401).send(new Buffer(`Device not registered. Device ID: ${message.device}\n`));
+				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
 			}, 10000);
 
 			platform.once(requestId, (deviceInfo) => {
@@ -136,7 +140,7 @@ platform.once('ready', function (options) {
 						device: message.device
 					}));
 
-					return res.status(401).send(new Buffer(`Device not registered. Device ID: ${message.device}\n`));
+					return res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
 				}
 
 				platform.sendMessageToDevice(message.target, message.message);
@@ -148,7 +152,7 @@ platform.once('ready', function (options) {
 					message: message
 				}));
 
-				res.status(200).send(new Buffer(`Message Received. Device ID: ${message.device}. Message: ${req.body}\n`));
+				res.status(200).send(`Message Received. Device ID: ${message.device}. Message: ${JSON.stringify(message)}\n`);
 			});
 		});
 	});
@@ -156,14 +160,16 @@ platform.once('ready', function (options) {
 	app.post((options.groupmessage_path.startsWith('/')) ? options.groupmessage_path : `/${options.groupmessage_path}`, (req, res) => {
 		let message = req.body;
 
+		res.set('Content-Type', 'text/plain');
+
 		if (isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
 			platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "device", "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
-			return res.status(400).send(new Buffer('Invalid group message or command. Group messages must be a valid JSON String with "device", "target" and "message" fields. "target" is a device group id or name. "message" is the payload.\n'));
+			return res.status(400).send('Invalid group message or command. Group messages must be a valid JSON String with "device", "target" and "message" fields. "target" is a device group id or name. "message" is the payload.\n');
 		}
 
 		platform.requestDeviceInfo(message.device, (error, requestId) => {
 			let t = setTimeout(() => {
-				res.status(401).send(new Buffer(`Device not registered. Device ID: ${message.device}\n`));
+				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
 			}, 10000);
 
 			platform.once(requestId, (deviceInfo) => {
@@ -175,7 +181,7 @@ platform.once('ready', function (options) {
 						device: message.device
 					}));
 
-					return res.status(401).send(new Buffer(`Device not registered. Device ID: ${message.device}\n`));
+					return res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
 				}
 
 				platform.sendMessageToGroup(message.target, message.message);
@@ -187,7 +193,7 @@ platform.once('ready', function (options) {
 					message: message
 				}));
 
-				res.status(200).send(new Buffer(`Group Message Received. Device ID: ${message.device}. Message: ${req.body}\n`));
+				res.status(200).send(`Group Message Received. Device ID: ${message.device}. Message: ${JSON.stringify(message)}\n`);
 			});
 		});
 	});
@@ -195,10 +201,14 @@ platform.once('ready', function (options) {
 	app.use((error, req, res, next) => {
 		platform.handleException(error);
 
+		res.set('Content-Type', 'text/plain');
+
 		res.status(500).send('An unexpected error has occurred. Please contact support.\n');
 	});
 
 	app.use((req, res) => {
+		res.set('Content-Type', 'text/plain');
+		
 		res.status(404).send(`Invalid Path. ${req.originalUrl} Not Found\n`);
 	});
 
