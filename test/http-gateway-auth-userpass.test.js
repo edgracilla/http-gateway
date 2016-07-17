@@ -81,7 +81,7 @@ describe('HTTP Gateway Auth - User Pass', function () {
 				url: `http://localhost:${PORT}${DATA_PATH}`,
 				body: JSON.stringify({device: '567827489028379', data: 'test data'}),
 				headers: {
-					'Content-Type': 'text/plain'
+					'Content-Type': 'application/json'
 				}
 			}, function (error, response, body) {
 				assert.ifError(error);
@@ -100,7 +100,7 @@ describe('HTTP Gateway Auth - User Pass', function () {
 				url: `http://localhost:${PORT}${DATA_PATH}`,
 				body: JSON.stringify({device: '567827489028379', data: 'test data'}),
 				headers: {
-					'Content-Type': 'text/plain'
+					'Content-Type': 'application/json'
 				},
 				auth: {
 					user: USERNAME,
@@ -123,7 +123,7 @@ describe('HTTP Gateway Auth - User Pass', function () {
 				url: `http://localhost:${PORT}${MESSAGE_PATH}`,
 				body: JSON.stringify({device: '567827489028370', target: '567827489028379', message: 'TURNOFF'}),
 				headers: {
-					'Content-Type': 'text/plain'
+					'Content-Type': 'application/json'
 				},
 				auth: {
 					user: USERNAME,
@@ -146,7 +146,7 @@ describe('HTTP Gateway Auth - User Pass', function () {
 				url: `http://localhost:${PORT}${GROUPMESSAGE_PATH}`,
 				body: JSON.stringify({device: '567827489028370', target: 'Bedroom Lights', message: 'TURNOFF'}),
 				headers: {
-					'Content-Type': 'text/plain'
+					'Content-Type': 'application/json'
 				},
 				auth: {
 					user: USERNAME,
