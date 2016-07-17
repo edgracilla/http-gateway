@@ -1,7 +1,6 @@
 'use strict';
 
-var async    = require('async'),
-	platform = require('./platform'),
+var platform = require('./platform'),
 	isEmpty  = require('lodash.isempty'),
 	server;
 
@@ -17,6 +16,8 @@ platform.once('close', function () {
 
 	d.run(function () {
 		server.close(() => {
+			server.removeAllListeners();
+			platform.notifyClose();
 			d.exit();
 		});
 	});
@@ -40,13 +41,9 @@ platform.once('ready', function (options) {
 
 	var app = express();
 
-	app.use(bodyParser.text({
+	app.use(bodyParser.json({
 		type: '*/*',
-		limit: '500kb'
-	}));
-
-	app.use(bodyParser.urlencoded({
-		extended: true
+		limit: '5mb'
 	}));
 
 	// For security
@@ -80,142 +77,161 @@ platform.once('ready', function (options) {
 	}
 
 	app.post((options.data_path.startsWith('/')) ? options.data_path : `/${options.data_path}`, (req, res) => {
-		async.waterfall([
-			async.constant(req.body || '{}'),
-			async.asyncify(JSON.parse)
-		], (error, data) => {
-			if (error || isEmpty(req.body) || isEmpty(data.device)) {
-				platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-				return res.status(400).send(new Buffer('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-			}
+		let data = req.body;
 
-			platform.requestDeviceInfo(data.device, (error, requestId) => {
-				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
-					res.status(504).send(new Buffer('Gateway Timeout'));
-				}, 5000);
+		res.set('Content-Type', 'text/plain');
 
-				platform.once(requestId, (deviceInfo) => {
-					clearTimeout(t);
+		if (isEmpty(data.device)) {
+			platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
+			return res.status(400).send('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.\n');
+		}
 
-					if (isEmpty(deviceInfo)) {
-						platform.log(JSON.stringify({
-							title: 'HTTP Gateway - Access Denied. Unauthorized Device',
-							device: data.device
-						}));
+		platform.requestDeviceInfo(data.device, (error, requestId) => {
+			let t = setTimeout(() => {
+				res.status(401).send(`Device not registered. Device ID: ${data.device}\n`);
+			}, 10000);
 
-						return res.status(401).send(new Buffer('Device is not registered.'));
-					}
+			platform.once(requestId, (deviceInfo) => {
+				clearTimeout(t);
 
-					platform.processData(data.device, req.body);
-
+				if (isEmpty(deviceInfo)) {
 					platform.log(JSON.stringify({
-						title: 'Data Received.',
-						device: data.device,
-						data: data
+						title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+						device: data.device
 					}));
 
-					res.status(200).send(new Buffer('Data Received'));
-				});
+					return res.status(401).send(`Device not registered. Device ID: ${data.device}\n`);
+				}
+
+				platform.processData(data.device, JSON.stringify(data));
+
+				platform.log(JSON.stringify({
+					title: 'Data Received.',
+					device: data.device,
+					data: data
+				}));
+
+				res.status(200).send(`Data Received. Device ID: ${data.device}. Data: ${JSON.stringify(data)}\n`);
 			});
 		});
 	});
 
 	app.post((options.message_path.startsWith('/')) ? options.message_path : `/${options.message_path}`, (req, res) => {
-		async.waterfall([
-			async.constant(req.body || '{}'),
-			async.asyncify(JSON.parse)
-		], (error, message) => {
-			if (error || isEmpty(req.body) || isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
-				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
-				return res.status(400).send(new Buffer('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
-			}
+		let message = req.body;
 
-			platform.requestDeviceInfo(message.device, (error, requestId) => {
-				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
-					res.status(504).send(new Buffer('Gateway Timeout'));
-				}, 5000);
+		res.set('Content-Type', 'text/plain');
 
-				platform.once(requestId, (deviceInfo) => {
-					clearTimeout(t);
+		if (isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
+			platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "device" ,"target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
+			return res.status(400).send('Invalid message or command. Message must be a valid JSON String with "device", "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.\n');
+		}
 
-					if (isEmpty(deviceInfo)) {
-						platform.log(JSON.stringify({
-							title: 'HTTP Gateway - Access Denied. Unauthorized Device',
-							device: message.device
-						}));
+		platform.requestDeviceInfo(message.device, (error, requestId) => {
+			let t = setTimeout(() => {
+				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
+			}, 10000);
 
-						return res.status(401).send(new Buffer('Device is not registered.'));
-					}
+			platform.once(requestId, (deviceInfo) => {
+				clearTimeout(t);
 
-					platform.sendMessageToDevice(message.target, message.message);
-
+				if (isEmpty(deviceInfo)) {
 					platform.log(JSON.stringify({
-						title: 'Message Sent.',
-						source: message.device,
-						target: message.target,
-						message: message
+						title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+						device: message.device
 					}));
 
-					res.status(200).send(new Buffer('Message Received'));
-				});
+					return res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
+				}
+
+				platform.sendMessageToDevice(message.target, message.message);
+
+				platform.log(JSON.stringify({
+					title: 'Message Sent.',
+					source: message.device,
+					target: message.target,
+					message: message
+				}));
+
+				res.status(200).send(`Message Received. Device ID: ${message.device}. Message: ${JSON.stringify(message)}\n`);
 			});
 		});
 	});
 
 	app.post((options.groupmessage_path.startsWith('/')) ? options.groupmessage_path : `/${options.groupmessage_path}`, (req, res) => {
-		async.waterfall([
-			async.constant(req.body || '{}'),
-			async.asyncify(JSON.parse)
-		], (error, message) => {
-			if (error || isEmpty(req.body) || isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
-				platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
-				return res.status(400).send(new Buffer('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
-			}
+		let message = req.body;
 
-			platform.requestDeviceInfo(message.device, (error, requestId) => {
-				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
-					res.status(504).send(new Buffer('Gateway Timeout'));
-				}, 5000);
+		res.set('Content-Type', 'text/plain');
 
-				platform.once(requestId, (deviceInfo) => {
-					clearTimeout(t);
+		if (isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
+			platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "device", "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
+			return res.status(400).send('Invalid group message or command. Group messages must be a valid JSON String with "device", "target" and "message" fields. "target" is a device group id or name. "message" is the payload.\n');
+		}
 
-					if (isEmpty(deviceInfo)) {
-						platform.log(JSON.stringify({
-							title: 'HTTP Gateway - Access Denied. Unauthorized Device',
-							device: message.device
-						}));
+		platform.requestDeviceInfo(message.device, (error, requestId) => {
+			let t = setTimeout(() => {
+				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
+			}, 10000);
 
-						return res.sendStatus(401).send(new Buffer('Device is not registered.'));
-					}
+			platform.once(requestId, (deviceInfo) => {
+				clearTimeout(t);
 
-					platform.sendMessageToGroup(message.target, message.message);
-
+				if (isEmpty(deviceInfo)) {
 					platform.log(JSON.stringify({
-						title: 'Group Message Sent.',
-						source: message.device,
-						target: message.target,
-						message: message
+						title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+						device: message.device
 					}));
 
-					res.status(200).send(new Buffer('Group Message Received'));
-				});
+					return res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
+				}
+
+				platform.sendMessageToGroup(message.target, message.message);
+
+				platform.log(JSON.stringify({
+					title: 'Group Message Sent.',
+					source: message.device,
+					target: message.target,
+					message: message
+				}));
+
+				res.status(200).send(`Group Message Received. Device ID: ${message.device}. Message: ${JSON.stringify(message)}\n`);
 			});
 		});
 	});
 
-	server = require('http').Server(app);
+	app.use((error, req, res, next) => {
+		platform.handleException(error);
 
-	server.once('close', () => {
-		console.log(`HTTP Gateway closed on port ${options.port}`);
-		platform.notifyClose();
+		res.set('Content-Type', 'text/plain');
+
+		res.status(500).send('An unexpected error has occurred. Please contact support.\n');
 	});
 
-	server.listen(options.port);
+	app.use((req, res) => {
+		res.set('Content-Type', 'text/plain');
+		
+		res.status(404).send(`Invalid Path. ${req.originalUrl} Not Found\n`);
+	});
 
-	platform.notifyReady();
-	platform.log(`HTTP Gateway has been initialized on port ${options.port}`);
+	server = require('http').Server(app);
+
+	server.once('error', function (error) {
+		console.error('HTTP Gateway Error', error);
+		platform.handleException(error);
+
+		setTimeout(() => {
+			server.close(() => {
+				server.removeAllListeners();
+				process.exit();
+			});
+		}, 5000);
+	});
+
+	server.once('close', () => {
+		platform.log(`HTTP Gateway closed on port ${options.port}`);
+	});
+
+	server.listen(options.port, () => {
+		platform.notifyReady();
+		platform.log(`HTTP Gateway has been initialized on port ${options.port}`);
+	});
 });

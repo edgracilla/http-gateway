@@ -77,12 +77,12 @@ describe('HTTP Gateway', function () {
 				url: `http://localhost:${PORT}${DATA_PATH}`,
 				body: JSON.stringify({device: '567827489028375', data: 'test data'}),
 				headers: {
-					'Content-Type': 'text/plain'
+					'Content-Type': 'application/json'
 				}
 			}, function (error, response, body) {
 				assert.ifError(error);
 				assert.equal(200, response.statusCode);
-				assert.equal('Data Received', body);
+				assert.ok(body.startsWith('Data Received'));
 				done();
 			});
 		});
@@ -96,12 +96,12 @@ describe('HTTP Gateway', function () {
 				url: `http://localhost:${PORT}${MESSAGE_PATH}`,
 				body: JSON.stringify({device: '567827489028376', target: '567827489028375', message: 'TURNOFF'}),
 				headers: {
-					'Content-Type': 'text/plain'
+					'Content-Type': 'application/json'
 				}
 			}, function (error, response, body) {
 				assert.ifError(error);
 				assert.equal(200, response.statusCode);
-				assert.equal('Message Received', body);
+				assert.ok(body.startsWith('Message Received'));
 				done();
 			});
 		});
@@ -115,12 +115,12 @@ describe('HTTP Gateway', function () {
 				url: `http://localhost:${PORT}${GROUPMESSAGE_PATH}`,
 				body: JSON.stringify({device: '567827489028376', target: 'Bedroom Lights', message: 'TURNOFF'}),
 				headers: {
-					'Content-Type': 'text/plain'
+					'Content-Type': 'application/json'
 				}
 			}, function (error, response, body) {
 				assert.ifError(error);
 				assert.equal(200, response.statusCode);
-				assert.equal('Group Message Received', body);
+				assert.ok(body.startsWith('Group Message Received'));
 				done();
 			});
 		});
