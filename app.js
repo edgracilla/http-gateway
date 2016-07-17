@@ -156,7 +156,7 @@ platform.once('ready', function (options) {
 						message: message
 					}));
 
-					res.status(200).send(new Buffer(`Message Received. Device ID: ${message.device}. Data: ${req.body}\n`));
+					res.status(200).send(new Buffer(`Message Received. Device ID: ${message.device}. Message: ${req.body}\n`));
 				});
 			});
 		});
@@ -198,7 +198,7 @@ platform.once('ready', function (options) {
 						message: message
 					}));
 
-					res.status(200).send(new Buffer(`Group Message Received. Device ID: ${message.device}. Data: ${req.body}\n`));
+					res.status(200).send(new Buffer(`Group Message Received. Device ID: ${message.device}. Message: ${req.body}\n`));
 				});
 			});
 		});
