@@ -176,7 +176,7 @@ Platform.prototype.requestDeviceInfo = function (device, callback) {
 
 	setTimeout(() => {
 		this.removeAllListeners(requestId);
-	}, 10000);
+	}, 20000);
 };
 
 /**
