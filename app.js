@@ -1,7 +1,8 @@
 'use strict';
 
-var platform = require('./platform'),
-	isEmpty  = require('lodash.isempty'),
+var platform      = require('./platform'),
+	isEmpty       = require('lodash.isempty'),
+	isPlainObject = require('lodash.isplainobject'),
 	server;
 
 platform.once('close', function () {
@@ -87,7 +88,13 @@ platform.once('ready', function (options) {
 		}
 
 		platform.requestDeviceInfo(data.device, (error, requestId) => {
+			let t = setTimeout(() => {
+				res.status(401).send(`Device not registered. Device ID: ${data.device}\n`);
+			}, 20000);
+
 			platform.once(requestId, (deviceInfo) => {
+				clearTimeout(t);
+
 				if (isEmpty(deviceInfo)) {
 					platform.log(JSON.stringify({
 						title: 'HTTP Gateway - Access Denied. Unauthorized Device',
@@ -121,7 +128,13 @@ platform.once('ready', function (options) {
 		}
 
 		platform.requestDeviceInfo(message.device, (error, requestId) => {
+			let t = setTimeout(() => {
+				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
+			}, 20000);
+
 			platform.once(requestId, (deviceInfo) => {
+				clearTimeout(t);
+
 				if (isEmpty(deviceInfo)) {
 					platform.log(JSON.stringify({
 						title: 'HTTP Gateway - Access Denied. Unauthorized Device',
@@ -131,7 +144,10 @@ platform.once('ready', function (options) {
 					return res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
 				}
 
-				platform.sendMessageToDevice(message.target, message.message);
+				if (isPlainObject(message.message))
+					platform.sendMessageToDevice(message.target, JSON.stringify(message.message));
+				else
+					platform.sendMessageToDevice(message.target, message.message);
 
 				platform.log(JSON.stringify({
 					title: 'Message Sent.',
@@ -156,7 +172,13 @@ platform.once('ready', function (options) {
 		}
 
 		platform.requestDeviceInfo(message.device, (error, requestId) => {
+			let t = setTimeout(() => {
+				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
+			}, 20000);
+
 			platform.once(requestId, (deviceInfo) => {
+				clearTimeout(t);
+
 				if (isEmpty(deviceInfo)) {
 					platform.log(JSON.stringify({
 						title: 'HTTP Gateway - Access Denied. Unauthorized Device',
@@ -166,7 +188,10 @@ platform.once('ready', function (options) {
 					return res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
 				}
 
-				platform.sendMessageToGroup(message.target, message.message);
+				if (isPlainObject(message.message))
+					platform.sendMessageToDevice(message.target, JSON.stringify(message.message));
+				else
+					platform.sendMessageToDevice(message.target, message.message);
 
 				platform.log(JSON.stringify({
 					title: 'Group Message Sent.',

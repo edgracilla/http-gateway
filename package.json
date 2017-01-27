@@ -1,7 +1,7 @@
 {
   "name": "http-gateway",
   "description": "HTTP Gateway Plugin for the Reekoh IoT Platform.",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "author": "Reekoh, Inc.",
   "main": "app.js",
   "scripts": {
@@ -17,7 +17,8 @@
     "express": "^4.14.0",
     "helmet": "^2.1.1",
     "hpp": "^0.2.1",
-    "lodash.isempty": "^4.2.1"
+    "lodash.isempty": "^4.2.1",
+    "lodash.isplainobject": "^4.0.6"
   },
   "devDependencies": {
     "gulp": "^3.9.1",
