@@ -90,7 +90,7 @@ platform.once('ready', function (options) {
 		platform.requestDeviceInfo(data.device, (error, requestId) => {
 			let t = setTimeout(() => {
 				res.status(401).send(`Device not registered. Device ID: ${data.device}\n`);
-			}, 20000);
+			}, 10000);
 
 			platform.once(requestId, (deviceInfo) => {
 				clearTimeout(t);
@@ -130,7 +130,7 @@ platform.once('ready', function (options) {
 		platform.requestDeviceInfo(message.device, (error, requestId) => {
 			let t = setTimeout(() => {
 				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
-			}, 20000);
+			}, 10000);
 
 			platform.once(requestId, (deviceInfo) => {
 				clearTimeout(t);
@@ -174,7 +174,7 @@ platform.once('ready', function (options) {
 		platform.requestDeviceInfo(message.device, (error, requestId) => {
 			let t = setTimeout(() => {
 				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
-			}, 20000);
+			}, 10000);
 
 			platform.once(requestId, (deviceInfo) => {
 				clearTimeout(t);
