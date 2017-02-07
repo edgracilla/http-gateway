@@ -189,9 +189,9 @@ platform.once('ready', function (options) {
 				}
 
 				if (isPlainObject(message.message))
-					platform.sendMessageToDevice(message.target, JSON.stringify(message.message));
+					platform.sendMessageToGroup(message.target, JSON.stringify(message.message));
 				else
-					platform.sendMessageToDevice(message.target, message.message);
+					platform.sendMessageToGroup(message.target, message.message);
 
 				platform.log(JSON.stringify({
 					title: 'Group Message Sent.',
