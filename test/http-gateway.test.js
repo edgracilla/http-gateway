@@ -1,128 +1,139 @@
-'use strict';
+/* global describe, it, after, before */
+'use strict'
 
-const PORT              = 8080,
-	  DATA_PATH         = '/http/data',
-	  MESSAGE_PATH      = '/http/message',
-	  GROUPMESSAGE_PATH = '/http/groupmessage',
-	  DEVICE_ID1        = '567827489028375',
-	  DEVICE_ID2        = '567827489028376';
+const async = require('async')
+const should = require('should')
+const request = require('request')
 
-var cp      = require('child_process'),
-	assert  = require('assert'),
-	request = require('request'),
-	gateway;
+const Broker = require('../node_modules/reekoh/lib/broker.lib')
 
-describe('HTTP Gateway', function () {
-	this.slow(5000);
+const PORT = 8182
+const PLUGIN_ID = 'demo.gateway'
+const BROKER = 'amqp://guest:guest@127.0.0.1/'
+const OUTPUT_PIPES = 'demo.outpipe1,demo.outpipe2'
+const COMMAND_RELAYS = 'demo.relay1,demo.relay2'
 
-	after('terminate child process', function (done) {
-		this.timeout(5000);
+let conf = {
+  port: PORT,
+  dataPath: '/http/data',
+  commandPath: '/http/command'
+}
 
-		gateway.send({
-			type: 'close'
-		});
+let _app = null
+let _broker = null
 
-		setTimeout(function () {
-			gateway.kill('SIGKILL');
-			done();
-		}, 4000);
-	});
+describe('HTTP Gateway - no auth', () => {
+  before('init', function () {
+    process.env.BROKER = BROKER
+    process.env.PLUGIN_ID = PLUGIN_ID
+    process.env.OUTPUT_PIPES = OUTPUT_PIPES
+    process.env.COMMAND_RELAYS = COMMAND_RELAYS
+    process.env.CONFIG = JSON.stringify(conf)
 
-	describe('#spawn', function () {
-		it('should spawn a child process', function () {
-			assert.ok(gateway = cp.fork(process.cwd()), 'Child process not spawned.');
-		});
-	});
+    _broker = new Broker()
+  })
 
-	describe('#handShake', function () {
-		it('should notify the parent process when ready within 5 seconds', function (done) {
-			this.timeout(5000);
+  after('terminate', function () {
+    delete require.cache[require.resolve('../app')]
+  })
 
-			gateway.on('message', function (message) {
-				if (message.type === 'ready')
-					done();
-				else if (message.type === 'requestdeviceinfo') {
-					if (message.data.deviceId === DEVICE_ID1 || message.data.deviceId === DEVICE_ID2) {
-						gateway.send({
-							type: message.data.requestId,
-							data: {
-								_id: message.data.deviceId
-							}
-						});
-					}
-				}
-			});
+  describe('#start', function () {
+    it('should start the app', function (done) {
+      this.timeout(10000)
 
-			gateway.send({
-				type: 'ready',
-				data: {
-					options: {
-						port: PORT,
-						data_path: DATA_PATH,
-						message_path: MESSAGE_PATH,
-						groupmessage_path: GROUPMESSAGE_PATH
-					}
-				}
-			}, function (error) {
-				assert.ifError(error);
-			});
-		});
-	});
+      _app = require('../app')
+      _app.once('init', done)
+    })
+  })
 
-	describe('#data', function () {
-		it('should process the data', function (done) {
-			this.timeout(5000);
+  describe('#test RPC preparation', () => {
+    it('should connect to broker', (done) => {
+      _broker.connect(BROKER).then(() => {
+        return done() || null
+      }).catch((err) => {
+        done(err)
+      })
+    })
 
-			request.post({
-				url: `http://localhost:${PORT}${DATA_PATH}`,
-				body: JSON.stringify({device: '567827489028375', data: 'test data'}),
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			}, function (error, response, body) {
-				assert.ifError(error);
-				assert.equal(200, response.statusCode);
-				assert.ok(body.startsWith('Data Received'));
-				done();
-			});
-		});
-	});
+    it('should spawn temporary RPC server', (done) => {
+      _broker.createRPC('server', 'deviceinfo').then((queue) => {
+        return queue.serverConsume((msg) => {
+          return new Promise((resolve, reject) => {
+            async.waterfall([
+              async.constant(msg.content.toString('utf8')),
+              async.asyncify(JSON.parse)
+            ], (err, parsed) => {
+              if (err) return reject(err)
+              parsed.foo = 'bar'
+              resolve(JSON.stringify(parsed))
+            })
+          })
+        })
+      }).then(() => {
+        // Awaiting RPC requests
+        done()
+      }).catch((err) => {
+        done(err)
+      })
+    })
+  })
 
-	describe('#message', function () {
-		it('should send the message', function (done) {
-			this.timeout(5000);
+  describe('#data', function () {
+    it('should process the data', function (done) {
+      this.timeout(10000)
 
-			request.post({
-				url: `http://localhost:${PORT}${MESSAGE_PATH}`,
-				body: JSON.stringify({device: '567827489028376', target: '567827489028375', message: 'TURNOFF'}),
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			}, function (error, response, body) {
-				assert.ifError(error);
-				assert.equal(200, response.statusCode);
-				assert.ok(body.startsWith('Message Received'));
-				done();
-			});
-		});
-	});
+      request.post({
+        url: `http://localhost:${PORT}${conf.dataPath}`,
+        body: JSON.stringify({device: '567827489028375', data: 'test data'}),
+        headers: {'Content-Type': 'application/json'}
+      }, function (error, response, body) {
+        should.ifError(error)
+        should.equal(200, response.statusCode)
+        should.ok(body.startsWith('Data Received'))
+        done()
+      })
+    })
+  })
 
-	describe('#groupmessage', function () {
-		it('should send the group message', function (done) {
-			this.timeout(5000);
+  describe('#command', function () {
+    it('should be able to send command to device', function (done) {
+      this.timeout(10000)
 
-			request.post({
-				url: `http://localhost:${PORT}${GROUPMESSAGE_PATH}`,
-				body: JSON.stringify({device: '567827489028376', target: 'Bedroom Lights', message: 'TURNOFF'}),
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			}, function (error, response, body) {
-				assert.ifError(error);
-				assert.equal(200, response.statusCode);
-				assert.ok(body.startsWith('Group Message Received'));
-				done();
-			});
-		});
-	});
-});
+      request.post({
+        url: `http://localhost:${PORT}${conf.commandPath}`,
+        body: JSON.stringify({
+          device: '567827489028376',
+          target: '567827489028375',
+          deviceGroup: '',
+          command: 'TURNOFF'}),
+        headers: {'Content-Type': 'application/json'}
+      }, function (error, response, body) {
+        should.ifError(error)
+        should.equal(200, response.statusCode)
+        should.ok(body.startsWith('Message Received'))
+        done()
+      })
+    })
+  })
+
+  // NOT TESTABLE YET
+
+  // describe('#groupmessage', function () {
+  //   it('should send the group message', function (done) {
+  //     this.timeout(5000);
+
+  //     request.post({
+  //       url: `http://localhost:${PORT}${GROUPconf.commandPath}`,
+  //       body: JSON.stringify({device: '567827489028376', target: 'Bedroom Lights', message: 'TURNOFF'}),
+  //       headers: {
+  //         'Content-Type': 'application/json'
+  //       }
+  //     }, function (error, response, body) {
+  //       should.ifError(error);
+  //       should.equal(200, response.statusCode);
+  //       should.ok(body.startsWith('Group Message Received'));
+  //       done();
+  //     });
+  //   });
+  // });
+})

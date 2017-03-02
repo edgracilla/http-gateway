@@ -1,244 +1,187 @@
-'use strict';
+'use strict'
 
-var platform      = require('./platform'),
-	isEmpty       = require('lodash.isempty'),
-	isPlainObject = require('lodash.isplainobject'),
-	server;
+const reekoh = require('reekoh')
+const plugin = new reekoh.plugins.Gateway()
 
-platform.once('close', function () {
-	let d = require('domain').create();
+const isEmpty = require('lodash.isempty')
+const isPlainObject = require('lodash.isplainobject')
 
-	d.once('error', function (error) {
-		console.error(error);
-		platform.handleException(error);
-		platform.notifyClose();
-		d.exit();
-	});
+let server = null
 
-	d.run(function () {
-		server.close(() => {
-			server.removeAllListeners();
-			platform.notifyClose();
-			d.exit();
-		});
-	});
-});
+plugin.once('ready', () => {
+  let hpp = require('hpp')
+  let helmet = require('helmet')
+  let config = require('./config.json')
+  let express = require('express')
+  let bodyParser = require('body-parser')
 
-platform.once('ready', function (options) {
-	let hpp        = require('hpp'),
-		helmet     = require('helmet'),
-		config     = require('./config.json'),
-		express    = require('express'),
-		bodyParser = require('body-parser');
+  let options = plugin.config
+  let app = express()
+  let msgStr = ''
 
-	if (isEmpty(options.data_path))
-		options.data_path = config.data_path.default;
+  if (isEmpty(options.dataPath)) options.dataPath = config.dataPath.default
+  if (isEmpty(options.commandPath)) options.commandPath = config.commandPath.default
 
-	if (isEmpty(options.message_path))
-		options.message_path = config.message_path.default;
+  app.use(bodyParser.json({
+    type: '*/*',
+    limit: '5mb'
+  }))
 
-	if (isEmpty(options.groupmessage_path))
-		options.groupmessage_path = config.groupmessage_path.default;
+  // For security
+  app.disable('x-powered-by')
+  app.use(helmet.xssFilter({setOnOldIE: true}))
+  app.use(helmet.frameguard('deny'))
+  app.use(helmet.ieNoOpen())
+  app.use(helmet.noSniff())
+  app.use(hpp())
 
-	var app = express();
+  if (!isEmpty(options.username)) {
+    let basicAuth = require('basic-auth')
 
-	app.use(bodyParser.json({
-		type: '*/*',
-		limit: '5mb'
-	}));
+    app.use((req, res, next) => {
+      let unauthorized = (res) => {
+        res.set('WWW-Authenticate', 'Basic realm=Authorization Required')
+        return res.sendStatus(401)
+      }
 
-	// For security
-	app.disable('x-powered-by');
-	app.use(helmet.xssFilter({setOnOldIE: true}));
-	app.use(helmet.frameguard('deny'));
-	app.use(helmet.ieNoOpen());
-	app.use(helmet.noSniff());
-	app.use(hpp());
+      let user = basicAuth(req)
 
-	if (!isEmpty(options.username)) {
-		let basicAuth = require('basic-auth');
+      if (isEmpty(user)) {
+        return unauthorized(res)
+      }
+      if (user.name === options.username && isEmpty(options.password)) {
+        return next()
+      }
+      if (user.name === options.username && user.pass === options.password) {
+        return next()
+      } else {
+        return unauthorized(res)
+      }
+    })
+  }
 
-		app.use((req, res, next) => {
-			let unauthorized = (res) => {
-				res.set('WWW-Authenticate', 'Basic realm=Authorization Required');
-				return res.sendStatus(401);
-			};
+  app.post((options.dataPath.startsWith('/')) ? options.dataPath : `/${options.dataPath}`, (req, res) => {
+    let data = req.body
 
-			let user = basicAuth(req);
+    res.set('Content-Type', 'text/plain')
 
-			if (isEmpty(user))
-				return unauthorized(res);
-			if (user.name === options.username && isEmpty(options.password))
-				return next();
-			if (user.name === options.username && user.pass === options.password)
-				return next();
-			else
-				return unauthorized(res);
-		});
-	}
+    if (isEmpty(data.device)) {
+      msgStr = 'Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'
+      plugin.logException(new Error(msgStr))
+      return res.status(400).send(`${msgStr}\n`)
+    }
 
-	app.post((options.data_path.startsWith('/')) ? options.data_path : `/${options.data_path}`, (req, res) => {
-		let data = req.body;
+    plugin.requestDeviceInfo(data.device).then((deviceInfo) => {
+      if (isEmpty(deviceInfo)) {
+        plugin.log(JSON.stringify({
+          title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+          device: data.device
+        }))
 
-		res.set('Content-Type', 'text/plain');
+        return res.status(401).send(`Device not registered. Device ID: ${data.device}\n`)
+      }
 
-		if (isEmpty(data.device)) {
-			platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.'));
-			return res.status(400).send('Invalid data sent. Data must be a valid JSON String with at least a "device" field which corresponds to a registered Device ID.\n');
-		}
+      return plugin.pipe(data).then(() => {
+        res.status(200).send(`Data Received. Device ID: ${data.device}. Data: ${JSON.stringify(data)}\n`)
+        return plugin.log(JSON.stringify({
+          title: 'Data Received.',
+          device: data.device,
+          data: data
+        }))
+      })
+    }).catch((err) => {
+      console.log(err)
+      plugin.logException(err)
 
-		platform.requestDeviceInfo(data.device, (error, requestId) => {
-			let t = setTimeout(() => {
-				res.status(401).send(`Device not registered. Device ID: ${data.device}\n`);
-			}, 10000);
+      if (err.message === 'Request for device information has timed out.') {
+        res.status(401).send(`Device not registered. Device ID: ${data.device}\n`)
+      }
+    })
+  })
 
-			platform.once(requestId, (deviceInfo) => {
-				clearTimeout(t);
+  app.post((options.commandPath.startsWith('/')) ? options.commandPath : `/${options.commandPath}`, (req, res) => {
+    let message = req.body
 
-				if (isEmpty(deviceInfo)) {
-					platform.log(JSON.stringify({
-						title: 'HTTP Gateway - Access Denied. Unauthorized Device',
-						device: data.device
-					}));
+    res.set('Content-Type', 'text/plain')
 
-					return res.status(401).send(`Device not registered. Device ID: ${data.device}\n`);
-				}
+    if (isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.command)) {
+      msgStr = 'Invalid message or command. Message must be a valid JSON String with "device" ,"target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'
+      plugin.logException(new Error(msgStr))
+      return res.status(400).send(`${msgStr}\n`)
+    }
 
-				platform.processData(data.device, JSON.stringify(data));
+    plugin.requestDeviceInfo(message.device).then((deviceInfo) => {
+      if (isEmpty(deviceInfo)) {
+        plugin.log(JSON.stringify({
+          title: 'HTTP Gateway - Access Denied. Unauthorized Device',
+          device: message.device
+        }))
 
-				platform.log(JSON.stringify({
-					title: 'Data Received.',
-					device: data.device,
-					data: data
-				}));
+        return res.status(401).send(`Device not registered. Device ID: ${message.device}\n`)
+      }
 
-				res.status(200).send(`Data Received. Device ID: ${data.device}. Data: ${JSON.stringify(data)}\n`);
-			});
-		});
-	});
+      let ret = null
 
-	app.post((options.message_path.startsWith('/')) ? options.message_path : `/${options.message_path}`, (req, res) => {
-		let message = req.body;
+      if (isPlainObject(message.command)) {
+        ret = plugin.relayCommand(JSON.stringify(message.command), message.target, message.deviceGroup)
+      } else {
+        ret = plugin.relayCommand(message.command, message.target, message.deviceGroup)
+      }
 
-		res.set('Content-Type', 'text/plain');
+      return ret.then(() => {
+        res.status(200).send(`Message Received. Device ID: ${message.device}. Message: ${JSON.stringify(message)}\n`)
 
-		if (isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
-			platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "device" ,"target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
-			return res.status(400).send('Invalid message or command. Message must be a valid JSON String with "device", "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.\n');
-		}
+        return plugin.log(JSON.stringify({
+          title: 'Message Sent.',
+          source: message.device,
+          target: message.target,
+          command: message.command
+        }))
+      })
+    }).catch((err) => {
+      console.log(err)
+      plugin.logException(err)
 
-		platform.requestDeviceInfo(message.device, (error, requestId) => {
-			let t = setTimeout(() => {
-				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
-			}, 10000);
+      if (err.message === 'Request for device information has timed out.') {
+        res.status(401).send(`Device not registered. Device ID: ${message.device}\n`)
+      }
+    })
+  })
 
-			platform.once(requestId, (deviceInfo) => {
-				clearTimeout(t);
+  app.use((error, req, res, next) => {
+    plugin.logException(error)
 
-				if (isEmpty(deviceInfo)) {
-					platform.log(JSON.stringify({
-						title: 'HTTP Gateway - Access Denied. Unauthorized Device',
-						device: message.device
-					}));
+    res.set('Content-Type', 'text/plain')
+    res.status(500).send('An unexpected error has occurred. Please contact support.\n')
+  })
 
-					return res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
-				}
+  app.use((req, res) => {
+    res.set('Content-Type', 'text/plain')
+    res.status(404).send(`Invalid Path. ${req.originalUrl} Not Found\n`)
+  })
 
-				if (isPlainObject(message.message))
-					platform.sendMessageToDevice(message.target, JSON.stringify(message.message));
-				else
-					platform.sendMessageToDevice(message.target, message.message);
+  server = require('http').Server(app)
 
-				platform.log(JSON.stringify({
-					title: 'Message Sent.',
-					source: message.device,
-					target: message.target,
-					message: message
-				}));
+  server.once('error', function (error) {
+    console.error('HTTP Gateway Error', error)
+    plugin.logException(error)
 
-				res.status(200).send(`Message Received. Device ID: ${message.device}. Message: ${JSON.stringify(message)}\n`);
-			});
-		});
-	});
+    setTimeout(() => {
+      server.close(() => {
+        server.removeAllListeners()
+        process.exit()
+      })
+    }, 5000)
+  })
 
-	app.post((options.groupmessage_path.startsWith('/')) ? options.groupmessage_path : `/${options.groupmessage_path}`, (req, res) => {
-		let message = req.body;
+  server.once('close', () => {
+    plugin.log(`HTTP Gateway closed on port ${options.port}`)
+  })
 
-		res.set('Content-Type', 'text/plain');
+  server.listen(options.port, () => {
+    plugin.emit('init')
+    plugin.log(`HTTP Gateway has been initialized on port ${options.port}`)
+  })
+})
 
-		if (isEmpty(message.device) || isEmpty(message.target) || isEmpty(message.message)) {
-			platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "device", "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
-			return res.status(400).send('Invalid group message or command. Group messages must be a valid JSON String with "device", "target" and "message" fields. "target" is a device group id or name. "message" is the payload.\n');
-		}
-
-		platform.requestDeviceInfo(message.device, (error, requestId) => {
-			let t = setTimeout(() => {
-				res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
-			}, 10000);
-
-			platform.once(requestId, (deviceInfo) => {
-				clearTimeout(t);
-
-				if (isEmpty(deviceInfo)) {
-					platform.log(JSON.stringify({
-						title: 'HTTP Gateway - Access Denied. Unauthorized Device',
-						device: message.device
-					}));
-
-					return res.status(401).send(`Device not registered. Device ID: ${message.device}\n`);
-				}
-
-				if (isPlainObject(message.message))
-					platform.sendMessageToGroup(message.target, JSON.stringify(message.message));
-				else
-					platform.sendMessageToGroup(message.target, message.message);
-
-				platform.log(JSON.stringify({
-					title: 'Group Message Sent.',
-					source: message.device,
-					target: message.target,
-					message: message
-				}));
-
-				res.status(200).send(`Group Message Received. Device ID: ${message.device}. Message: ${JSON.stringify(message)}\n`);
-			});
-		});
-	});
-
-	app.use((error, req, res, next) => {
-		platform.handleException(error);
-
-		res.set('Content-Type', 'text/plain');
-
-		res.status(500).send('An unexpected error has occurred. Please contact support.\n');
-	});
-
-	app.use((req, res) => {
-		res.set('Content-Type', 'text/plain');
-
-		res.status(404).send(`Invalid Path. ${req.originalUrl} Not Found\n`);
-	});
-
-	server = require('http').Server(app);
-
-	server.once('error', function (error) {
-		console.error('HTTP Gateway Error', error);
-		platform.handleException(error);
-
-		setTimeout(() => {
-			server.close(() => {
-				server.removeAllListeners();
-				process.exit();
-			});
-		}, 5000);
-	});
-
-	server.once('close', () => {
-		platform.log(`HTTP Gateway closed on port ${options.port}`);
-	});
-
-	server.listen(options.port, () => {
-		platform.notifyReady();
-		platform.log(`HTTP Gateway has been initialized on port ${options.port}`);
-	});
-});
+module.exports = plugin

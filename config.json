@@ -1,21 +1,15 @@
 {
-  "data_path": {
+  "dataPath": {
     "type": "String",
     "label": "Data Path",
     "default": "/reekoh/data",
     "help": "(Optional) The path where device data is POSTed. Default: /reekoh/data"
   },
-  "message_path": {
+  "commandPath": {
     "type": "String",
-    "label": "Message Path",
-    "default": "/reekoh/messages",
-    "help": "(Optional) The path where device messages or commands are POSTed. Default: /reekoh/data"
-  },
-  "groupmessage_path": {
-    "type": "String",
-    "label": "Group Message Topic",
-    "default": "/reekoh/groupmessages",
-    "help": "(Optional) The path where group messages or commands are POSTed. Default: /reekoh/groupmessages"
+    "label": "Command Path",
+    "default": "/reekoh/command",
+    "help": "(Optional) The path where device messages or commands are POSTed. Default: /reekoh/command"
   },
   "username": {
     "type": "String",
